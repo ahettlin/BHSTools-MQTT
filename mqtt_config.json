@@ -1,0 +1,9 @@
+{
+	"mqtt": {
+		"server_address": "media.local",
+		"client_id": "BHS",
+		"topic_root": "home/security/"
+	},
+	"zone_names": ["front_door", "garage_entry", "sliding_door", "bedroom_windows_1", "bedroom_windows_2", "kitchen_glass", "basement_glass"],
+	"intellibus_port": "COM3"
+}
