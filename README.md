@@ -3,7 +3,7 @@ This is an MQTT client built on top of the [BHSTools](https://github.com/flarn20
 
 I built it to fit my needs with a minimal amount of configuration, so it might not be as flexible as it could be for general use. However, it should suffice for most simple uses.
 
-## Requirements
+## Requirements and Limitations
 - The code assumes it is running on a device that has a serial connection to the security system as described in [the BHSTools documentation](https://github.com/flarn2006/BHSTools#using-rs-485). 
 - There is currently no way to connect to the MQTT server with credentials. 
 
