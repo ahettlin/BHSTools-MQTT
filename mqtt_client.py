@@ -128,7 +128,7 @@ command_queue = CommandQueue(command_complete) #commands to execute, to make up 
 def query_all_zone_states():
 	for i in range(len(configuration['zone_names'])):
 		command_queue.enqueue({"op": 709, "args": ["1", str(i+1)]})
-	#TODO: figure out command to query overall system ready status
+	#TODO: figure out command to query overall system ready status and add command to get armed state
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
