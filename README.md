@@ -10,7 +10,7 @@ I built it to fit my needs with a minimal amount of configuration, so it might n
 ## Setup and Running the Client
 
 ### Dependencies
-1. This code depends on the [BHSTools](https://github.com/flarn2006/BHSTools) source. You will need to clone that repository into a folder named `BHSTools` in the root directory of this project.
+1. This code depends on the [BHSTools](https://github.com/flarn2006/BHSTools) source. You will need to clone that repository into a folder named `BHSTools` in the root directory of this project. Runing `git clone https://github.com/flarn2006/BHSTools.git` in the root directory should accomplish that.
 2. MQTT functionality is provided by the Paho MQTT library. It should be installed with `pip install paho-mqtt` if it isn't already available.
 
 ### Configuration
@@ -45,7 +45,7 @@ These topics allow you to execute commands on the system by publishing messages 
 
 | Topic  | Payload | Description/Notes |
 | ------------- | ------------- | ------------- |
-| \${topic_root}/command  | `{"op": number, "args": string[]}` | Execute an arbitrary command. Supports all commands that command.py from BHSTools supports as of Nov 2021 |
+| \${topic_root}/command  | `{"op": number, "args": string[]}` | Execute an arbitrary command. Supports all commands that `command.py` from BHSTools supports as of Jan 2022 |
 | \${topic_root}/command/query  | `zone_number` | Queries the ready status of the specified zone. The corresponding topic above is published with the result |
 | ${topic_root}/command/arm | `delay_in_seconds` | Arms the system with the provided optional countdown time. The default is 60 seconds if no payload is provided. Will not arm if the system is not ready. |
 | ${topic_root}/command/disarm | | Disarms the system |
