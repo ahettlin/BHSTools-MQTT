@@ -101,7 +101,6 @@ def command_complete(cmd, args, result):
 		result_string = ""
 	
 	result_string = "command: " + str(cmd) + " (" + str(args) + ") " + " completed" + result_string + "."
-	publish_command_result(result_string)
 	#print(result_string)
 		
 	if cmd == 709: #query zone
@@ -113,14 +112,16 @@ def command_complete(cmd, args, result):
 	elif cmd == 1000: #arm
 		success = result[1] == 0
 		result_string = "Arm " + ("complete" if success else "failed")
-		publish_command_result(result_string)
+		#publish_command_result(result_string)
 		print(result_string)
 	elif cmd == 1001: #disarm
 		result_string = "Disarm complete"
-		publish_command_result(result_string)
+		#publish_command_result(result_string)
 		print(result_string)
 	else:
 		print(result_string)
+
+	publish_command_result(result_string)
 
 
 command_queue = CommandQueue(command_complete) #commands to execute, to make up for the command sender only handling one at a time
