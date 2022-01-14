@@ -3,29 +3,11 @@ import datetime
 import json
 import sys
 import paho.mqtt.client as mqtt
+from mqtt_command import arg_hex_raw
 from mqtt_command_queue import CommandQueue
 
 sys.path.append("./BHSTools")
 from BHSTools.intellibus import *
-
-
-# PUBLISHED TOPICS
-# topic -> body
-#
-# ${topicRoot}/zone/${zone_name} -> "Ready"|"Not Ready"
-# ${topicRoot}/system -> "Ready"|"Not Ready"
-# ${topicRoot}/arm -> "Armed"|"Disarmed"
-# ${topicRoot}/time -> current system time
-# ${topicRoot}/command/result -> result of recently executed command
-#
-#
-# CONSUMED TOPICS
-#
-# ${topicRoot}/command -> {"op": number, "args": string[]} (supports all commands that command.py supports as of Nov 2021)
-# ${topicRoot}/command/query -> zone number
-# ${topicRoot}/command/arm -> delay in seconds, does not bypass
-# ${topicRoot}/command/disarm -> no body
-# ${topicRoot}/command/code -> no body
 
 configFile = open('mqtt_config.json')
 configuration = json.load(configFile)
@@ -33,23 +15,31 @@ configFile.close()
 
 client = mqtt.Client(client_id=configuration['mqtt']['client_id'])
 
+arm_mode_states = {
+	#-2: "triggered",
+	0: "armed_away",
+	2: "armed_home",
+	8: "armed_away",
+	10: "armed_home"
+}
+pending_arm_mode = None
 
 def publish(topic, value):
 	client.publish(configuration['mqtt']['topic_root'] + topic, value, qos=1, retain=True)
 
 def publish_zone_state(zone, state):
 	zone_name = configuration['zone_names'][zone]
-	state = "Ready" if state else "Not ready"
+	state = "ready" if state else "not_ready"
 	print(zone_name + " " + state)
 	publish("zone/" + zone_name, state)
 	
 def publish_system_state(state):
 	print("System " + ("ready" if state else "not ready"))
-	publish("system", "Ready" if state else "Not ready")
+	publish("system", "ready" if state else "not_ready")
 
 def publish_arm_state(state):
-	print("System " + ("armed" if state else "disarmed"))
-	publish("arm", "Armed" if state else "Disarmed")
+	print("System " + state)
+	publish("arm", state)
 	
 def publish_time(time):
 	time = time.strftime("%a, %b %d, %Y %I:%M %p")
@@ -72,15 +62,15 @@ def handle_announcement(args):
 	elif args[0] == 42: #system ready
 		publish_system_state(True)
 	elif args[0] == 50: #armed
-		publish_arm_state(True)
+		publish_arm_state(arm_mode_states[pending_arm_mode or 0])
 	elif args[0] == 51: #disarmed
-		publish_arm_state(False)
+		publish_arm_state("disarmed")
 	elif args[0] == 44: #countdown start
 		print("Countdown start")
+		publish_arm_state("pending")
 	elif args[0] == 45: #countdown end
 		print("Countdown end")
-	elif args[0] == 34: #arm state change?
-		pass
+		publish_arm_state(arm_mode_states[pending_arm_mode or 0])
 	elif args[0] == 4 or args[0] == 5: #duplicate? zone ready announcements
 		pass
 	else:
@@ -114,6 +104,10 @@ def command_complete(cmd, args, result):
 		result_string = "Arm " + ("complete" if success else "failed")
 		#publish_command_result(result_string)
 		print(result_string)
+		args = arg_hex_raw(args)
+		#print(list(args))
+		global pending_arm_mode
+		pending_arm_mode = args[22]
 	elif cmd == 1001: #disarm
 		result_string = "Disarm complete"
 		#publish_command_result(result_string)
@@ -147,25 +141,53 @@ def intToHex(int):
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
 	command_topic_root = configuration['mqtt']['topic_root'] + "command"
-	body = msg.payload.decode("utf-8")
-	if msg.topic == command_topic_root:	
-		#print(msg.topic + ": " + command)
-		command_queue.enqueue(json.loads(body))
-	else:
-		command_topic = msg.topic[len(command_topic_root)+1:]
-		if command_topic == "query":
-			command_queue.enqueue({"op": 709, "args": ["1", body]})
-		elif command_topic == "code":
-			command_queue.enqueue({"op": 90, "args": ["Supers.db", "0"]})
-		elif command_topic == "arm":
-			delay = intToHex(int(body) if body else 60)
-			user = intToHex(91)
-			bypass = False
-			bypass = intToHex(8 if bypass else 0)
-			command_queue.enqueue({"op": 1000, "args": ["00 00 " + user + " 00 00 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 " + delay + " " + bypass + " 00 00 00"]})
-		elif command_topic == "disarm":
-			user = intToHex(91)
-			command_queue.enqueue({"op": 1001, "args": ["00 00 " + user + " 00 00 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"]})
+	try:
+		body = msg.payload.decode("utf-8")
+		if msg.topic == command_topic_root:	
+			#print(msg.topic + ": " + command)
+			command_queue.enqueue(json.loads(body))
+		else:
+			command_topic = msg.topic[len(command_topic_root)+1:]
+			if command_topic == "query":
+				command_queue.enqueue({"op": 709, "args": ["1", body]})
+			elif command_topic == "code":
+				command_queue.enqueue({"op": 90, "args": ["Supers.db", "0"]})
+			elif command_topic == "arm":
+				body = json.loads(body)
+				op = None
+				delay = 60
+				mode = 0 # 0: will fail to arm the system if it's not ready, 8: arm with bypassing faulted zones, 2: arm in Instant, 10: arm in Instant bypassing faulted zones
+				
+				if body["op"] == "trigger":
+					pass
+
+				if body["op"].startswith("arm_"):
+					op = 1000
+					
+					if body["op"] == "arm_home":
+						mode = 2
+						delay = 0
+					else:
+						args = body.get("args", [])
+						delay = int(args[0]) if len(args) > 0 else 60
+
+				if body["op"] == "disarm":
+					op = 1001
+					delay = 0
+
+				global pending_arm_mode
+				pending_arm_mode = mode
+
+				delay = intToHex(delay)
+				user = intToHex(91)
+				mode = intToHex(mode)
+
+				command_queue.enqueue({"op": op, "args": ["00 00 " + user + " 00 00 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 " + delay + " " + mode + " 00 00 00"]})
+	except BaseException as err:
+		message = f"Unexpected {err=}, {type(err)=}"
+		publish_command_result(message)
+		print(message)
+
 
 
 client.on_connect = on_connect

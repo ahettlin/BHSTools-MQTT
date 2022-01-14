@@ -33,9 +33,9 @@ To start the client, run the `mqtt_client.py` file.
 
 | Topic  | Payload |
 | ------------- | ------------- |
-| \${topic_root}/zone/${zone_name}  | "Ready" \| "Not Ready" |
-| \${topic_root}/system  | "Ready" \| "Not Ready"  |
-| ${topic_root}/arm | "Armed" \| "Disarmed" |
+| \${topic_root}/zone/${zone_name}  | "ready" \| "not_ready" |
+| \${topic_root}/system  | "ready" \| "not_ready"  |
+| ${topic_root}/arm | "armed_home" \| "armed_away" \| "disarmed" \| "pending" \| "triggered" |
 | ${topic_root}/time | current system time <br/> format: `%a, %b %d, %Y %I:%M %p` |
 | ${topic_root}/command/result| human-readable result of most recently executed command <br />ex: `"command: ${opcode} (${args}) completed [with ${result}]."` |
 
@@ -47,8 +47,7 @@ These topics allow you to execute commands on the system by publishing messages 
 | ------------- | ------------- | ------------- |
 | \${topic_root}/command  | `{"op": number, "args": string[]}` | Execute an arbitrary command. Supports all commands that `command.py` from BHSTools supports as of Jan 2022 |
 | \${topic_root}/command/query  | `zone_number` | Queries the ready status of the specified zone. The corresponding topic above is published with the result |
-| ${topic_root}/command/arm | `delay_in_seconds` | Arms the system with the provided optional countdown time. The default is 60 seconds if no payload is provided. Will not arm if the system is not ready. |
-| ${topic_root}/command/disarm | | Disarms the system |
+| ${topic_root}/command/arm | `{"op": "ARM_AWAY"\|"ARM_HOME"\|"DISARM", "args": []}` | Arms or disarms the system depending on the provided `op` payload value.<br/><ul><li>`ARM_AWAY`: Arms the system in normal mode</li><li>`ARM_HOME`: Arms the system in Instant mode</li><li>`DISARM`: Disarms the system</li></ul> For the arm away command, you can provide a custom countdown as the first value in the `args` array. It should be a number and not a string. If none is provided, the default is 60 seconds. The system will not arm if any zones are fualted. |
 | ${topic_root}/command/code |  | Returns the installer access code |
 
 ## Notes
